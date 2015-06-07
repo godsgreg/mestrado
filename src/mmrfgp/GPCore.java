@@ -7,18 +7,26 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.Vector;
 
-import org.apache.commons.math.stat.descriptive.summary.Sum;
-import org.jgap.*;
-import org.jgap.event.*;
-import org.jgap.gp.*;
-import org.jgap.gp.function.*;
-import org.jgap.gp.impl.*;
-import org.jgap.gp.terminal.*;
-import org.jgap.util.*;
+import org.jgap.InvalidConfigurationException;
+import org.jgap.gp.CommandGene;
+import org.jgap.gp.GPFitnessFunction;
+import org.jgap.gp.GPProblem;
+import org.jgap.gp.IGPProgram;
+import org.jgap.gp.function.Add;
+import org.jgap.gp.function.Divide;
+import org.jgap.gp.function.Log;
+import org.jgap.gp.function.Max;
+import org.jgap.gp.function.Min;
+import org.jgap.gp.function.Multiply;
+import org.jgap.gp.function.Subtract;
+import org.jgap.gp.impl.DefaultGPFitnessEvaluator;
+import org.jgap.gp.impl.GPConfiguration;
+import org.jgap.gp.impl.GPGenotype;
+import org.jgap.gp.terminal.Terminal;
+import org.jgap.gp.terminal.Variable;
 
+import utilidades.FileHandler;
 import utilidades.Sqrt;
 
 /**
@@ -30,6 +38,7 @@ public class GPCore extends GPProblem {
 	int geracao = 0, individuosCont = 0;
 	static int currentFold = 0, currentState = 1;
 	static int folds[][][];
+	static FileHandler dataController;
 
 	protected static Variable ACC_sim, CEDD_sim, CLD_sim, FCTH_sim, GCH_sim, JCD_sim, PHOG_sim, SIFT_sim, BIC_sim;
 	protected static Variable ACC_txt1, CEDD_txt1, CLD_txt1, FCTH_txt1, GCH_txt1, JCD_txt1, PHOG_txt1, SIFT_txt1, BIC_txt1;
@@ -234,6 +243,11 @@ public class GPCore extends GPProblem {
 		//gp.outputSolution(gp.getAllTimeBest());
 		List<Double> solucoes = new ArrayList<Double>();
 		folds = utilidades.FoldGenerator.breakSetSelected();
+		
+		System.out.println("loading files...");
+		dataController = new FileHandler();
+		dataController.loadData(queryPath);
+		dataController.loadRelevants(relevantPath);
 		for(currentFold = 0; currentFold < 5; currentFold++){
 			System.out.println("==================================================\nCriando população inicial para a partição " + String.valueOf(currentFold + 1));
 			gp = problem.create();
@@ -271,7 +285,7 @@ public class GPCore extends GPProblem {
 		public static double computeRawFitness(final IGPProgram ind) {
 			float[] vetorFitness = new float[100];
 
-			Map<String, File[]> queries;
+			List<String> descritores;
 			Map<String, Map<String, Float> > ranks;
 			Map<String, Float> novoRank;
 			Map<String, float[]> menoresMaiores;
@@ -297,10 +311,10 @@ public class GPCore extends GPProblem {
 			
 			File folder = new File(queryPath);
 			File[] listOfFolders = folder.listFiles(); //retorna lista de paths para cada descritor
-			queries = new HashMap<String, File[]>();
+			descritores = new ArrayList<String>();
 			for (int i = 0; i < listOfFolders.length; i++) {
 				// Mapeia as 100 consultas de acordo com o nome do descritor
-				queries.put(listOfFolders[i].getName(),listOfFolders[i].listFiles());
+				descritores.add(listOfFolders[i].getName());
 			}
 			
 			int[] imagensSelecionadas = selectImages();
@@ -313,9 +327,9 @@ public class GPCore extends GPProblem {
 				//para cada imagem da lista de queries
 				ranks = new HashMap<String, Map<String, Float> >();
 				menoresMaiores = new HashMap<String, float[]>();
-				for (String key : queries.keySet()) {
+				for (String key : descritores) {
 					//System.out.println("Gerando rank para " + key);
-					ranks.put(key, recuperaRank(new File(queryPath + "/" + key + "/" + String.valueOf(currentQuery) + ".txt")));
+					ranks.put(key, dataController.getRank(key ,String.valueOf(currentQuery)+".txt"));
 					float[] f = minMax(ranks.get(key));
 					menoresMaiores.put(key, f);
 				}
@@ -335,27 +349,27 @@ public class GPCore extends GPProblem {
 				fitness += vetorFitness[i];
 			}
 			fitness /= numberOfQueries;
-			//System.out.println("Valor do fitness: " + fitness);
+			System.out.println("Valor do fitness: " + fitness);
 			return fitness;
 		}
 		
-		static Map<String, Float> recuperaRank(File file){
-			Map<String, Float> result = new HashMap<String, Float>();
-			try{
-				BufferedReader br = new BufferedReader(new FileReader(file));
-				String line;
-				while ((line = br.readLine()) != null) {
-					//System.out.println(line);
-					String[] dados = line.split(" ");
-					result.put(dados[1], Float.parseFloat(dados[0]) );
-				}
-				br.close();
-			}catch(Exception e){
-				e.printStackTrace();
-			}
-
-			return result;
-		}
+//		static Map<String, Float> recuperaRank(File file){
+//			Map<String, Float> result = new HashMap<String, Float>();
+//			try{
+//				BufferedReader br = new BufferedReader(new FileReader(file));
+//				String line;
+//				while ((line = br.readLine()) != null) {
+//					//System.out.println(line);
+//					String[] dados = line.split(" ");
+//					result.put(dados[1], Float.parseFloat(dados[0]) );
+//				}
+//				br.close();
+//			}catch(Exception e){
+//				e.printStackTrace();
+//			}
+//
+//			return result;
+//		}
 		
 	/*	Map<String, Float> expandeRank(Map<String, Float> rank, int k){
 			String[] rankStr = new String[rank.size()];
@@ -844,21 +858,8 @@ public class GPCore extends GPProblem {
 		
 		static float avaliaRank(Map<String, Float> rank, int fileIndex){
 			//File folder = new File(relevantPath);
-			List<String> relevantes = new ArrayList<String>();
-			//File[] listOfFiles = folder.listFiles(); //retorna lista de paths para cada descritor
-			//System.out.println("TESTE");
-			try{
-				//System.out.println("TESTE");
-				BufferedReader br = new BufferedReader(new FileReader(new File(relevantPath + "/" + String.valueOf(fileIndex) + ".txt")));
-				String line;
-				while ((line = br.readLine()) != null) {
-					//System.out.println(line);
-					relevantes.add(line);
-				}
-				br.close();
-			}catch(Exception e){
-				e.printStackTrace();
-			}
+			List<String> relevantes = dataController.getRelevant(fileIndex + ".txt");
+
 
 			String[] rankStr = new String[rank.size()];
 			float[] rankSim = new float[rank.size()];
@@ -920,8 +921,7 @@ public class GPCore extends GPProblem {
 			return Nranks;
 		}
 		
-		//static Map<S>
-
+		
 		static String[][] ordena(String[] paths, float[] distancias){
 			int menor; // maior
 			for(int i = 0; i < distancias.length - 1; i++){
