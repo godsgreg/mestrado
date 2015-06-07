@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="http://www.semanticmetadata.net/bovw/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+
+        <title>Bag of Visual Words - LIRE Documentation</title>
+
+        <link href="../css/bootstrap-custom.min.css" rel="stylesheet">
+        <link href="../css/font-awesome-4.0.3.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link rel="stylesheet" href="../css/highlight.css">
+
+        <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
+        <!--[if lt IE 9]>
+            <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+            <script src="https://oss.maxcdn.com/libs/respond.js/1.3.0/respond.min.js"></script>
+        <![endif]-->
+
+        
+        <script>
+            (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+            (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+            m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+            })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+            ga('create', 'UA-576792-1', 'auto');
+            ga('send', 'pageview');
+        </script>
+        
+    </head>
+
+    <body>
+
+        <div class="navbar navbar-default navbar-fixed-top" role="navigation">
+    <div class="container">
+
+        <!-- Collapsed navigation -->
+        <div class="navbar-header">
+            
+            <!-- Expander button -->
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            
+
+            <!-- Main title -->
+            <a class="navbar-brand" href="..">LIRE Documentation</a>
+        </div>
+
+        <!-- Expanded navigation -->
+        <div class="navbar-collapse collapse">
+            
+                <!-- Main navigation -->
+                <ul class="nav navbar-nav">
+                
+                
+                    <li >
+                        <a href="../lirefaq">FAQ</a>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Basics <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            <li >
+                                <a href="../createindex">Create Index</a>
+                            </li>
+                        
+                            <li >
+                                <a href="../searchindex">Search</a>
+                            </li>
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown active">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Advanced <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            <li class="active">
+                                <a href=".">Bag of Visual Words</a>
+                            </li>
+                        
+                            <li >
+                                <a href="../autocolorcorrelation">AutoColorCorrelogram</a>
+                            </li>
+                        
+                            <li >
+                                <a href="../applyfilters">Applying Filters</a>
+                            </li>
+                        
+                        </ul>
+                    </li>
+                
+                
+                
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown">Other <b class="caret"></b></a>
+                        <ul class="dropdown-menu">
+                        
+                            <li >
+                                <a href="../lireinternals">LIRE Internals</a>
+                            </li>
+                        
+                            <li >
+                                <a href="../imageread">Image Handling</a>
+                            </li>
+                        
+                        </ul>
+                    </li>
+                
+                
+                </ul>
+            
+
+            
+            <!-- Search, Navigation and Repo links -->
+            <ul class="nav navbar-nav navbar-right">
+                
+                
+                <li >
+                    <a rel="next" href="../searchindex">
+                        <i class="fa fa-arrow-left"></i> Previous
+                    </a>
+                </li>
+                <li >
+                    <a rel="prev" href="../autocolorcorrelation">
+                        Next <i class="fa fa-arrow-right"></i>
+                    </a>
+                </li>
+                
+                
+            </ul>
+            
+        </div>
+    </div>
+</div>
+
+        <div class="container">
+            
+                <div class="col-md-3"><div class="bs-sidebar hidden-print affix well" role="complementary">
+    <ul class="nav bs-sidenav">
+    
+        <li class="main active"><a href="#bag-of-visual-words-indexing">Bag of Visual Words Indexing</a></li>
+        
+            <li><a href="#bag-of-visual-words-search">Bag of Visual Words Search</a></li>
+        
+            <li><a href="#bag-of-visual-words-incremental-update">Bag of Visual Words Incremental Update</a></li>
+        
+    
+    </ul>
+</div></div>
+                <div class="col-md-9" role="main">
+
+<h1 id="bag-of-visual-words-indexing">Bag of Visual Words Indexing</h1>
+<p>Lire supports creation of a bag of visual words index and search within. You need to index documents the traditional way first and you have to take care of creating the right local features. This basically means that you'll need to use the SurfDocumentBuilder to get the local features for later BoVW indexing based on SURF features.</p>
+<p>Please not that the BoVW approach has been designed for big data sets. Therefore the implementation will not work properly with small data sets and usage will lead to errors and warnings. Please make sure that you use enough images, i.e. more than 1,000 (although it was meant to be used with millions), and please take notice of the warnings.</p>
+<pre><code>    public void createIndex() throws IOException {
+            String indexPath = "./bovw-test"; // change if oyou want a different one.
+
+            // create the initial local features:
+            ChainedDocumentBuilder builder = new ChainedDocumentBuilder();
+            builder.addBuilder(new SurfDocumentBuilder());
+            IndexWriter iw = LuceneUtils.createIndexWriter(indexPath, true);
+            ArrayList&lt;String&gt; images = FileUtils.getAllImages(new File("path/to/images..."), true);
+            for (String identifier : images) {
+                Document doc = builder.createDocument(new FileInputStream(identifier), identifier);
+                iw.addDocument(doc);
+            }
+            iw.close();
+
+            // create the visual words.
+            IndexReader ir = DirectoryReader.open(FSDirectory.open(new File(indexPath)));
+            // create a BoVW indexer, "-1" means that half of the images in the index are
+            // employed for creating the vocabulary. "100" is the number of visual words to be created.
+            SurfFeatureHistogramBuilder sh = new SurfFeatureHistogramBuilder(ir, -1, 100);
+            // progress monitoring is optional and opens a window showing you the progress.
+            sh.setProgressMonitor(new ProgressMonitor(null, "", "", 0, 100));
+            sh.index();
+    }
+</code></pre>
+<h2 id="bag-of-visual-words-search">Bag of Visual Words Search</h2>
+<p>With the <code>VisualWordsImageSearcher</code> you can search in BoVW indexes. Note that you need to take a document from the index for a query.</p>
+<pre><code>    public void searchIndex() {
+            String indexPath = "./bovw-test";
+            VisualWordsImageSearcher searcher = new VisualWordsImageSearcher(1000,
+                    DocumentBuilder.FIELD_NAME_SURF_VISUAL_WORDS);
+            IndexReader reader = DirectoryReader.open(FSDirectory.open(new File(indexPath)));
+            // let's take the first document for a query:
+            Document query = reader.document(0);
+            ImageSearchHits hits = searcher.search(query, reader);
+            // show or analyze your results ....
+    }
+</code></pre>
+<p>If you are searching for an image that is not in the index you would do something like ...</p>
+<pre><code>    public void searchIndex() {
+            String indexPath = "./bovw-test";
+            VisualWordsImageSearcher searcher = new VisualWordsImageSearcher(1000,
+                    DocumentBuilder.FIELD_NAME_SURF_VISUAL_WORDS);
+            IndexReader reader = DirectoryReader.open(FSDirectory.open(new File(indexPath)));
+
+            // employed for creating the visual words for the query document. 
+            // Make sure you are using the same parameters as for indexing. 
+            SurfFeatureHistogramBuilder sh = new SurfFeatureHistogramBuilder(reader, -1, 100);
+            // extract SURF features and create query
+            SurfDocumentBuilder sb = new SurfDocumentBuilder();
+            Document query = sb.createDocument(image, identifier);
+            // create visual words for the query
+            query = sh.getVisualWords(query);
+            // search
+            ImageSearchHits hits = searcher.search(query, reader);
+            // show or analyze your results ....
+    }
+</code></pre>
+<h2 id="bag-of-visual-words-incremental-update">Bag of Visual Words Incremental Update</h2>
+<p>Let's assume you have already indexed additional documents with the <code>SurfDocumentBuilder</code>, so they are in the index, but do not have visual words attached yet. then you need to create a new (or use the old) <code>SurfFeatureHistogramBuilder</code> and employ the <code>indexMissing()</code> methods. The constructor parameters do not matter in this case as they are read from disk in the course of the <code>indexMissing()</code> method.</p>
+</div>
+            
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            
+            <p>Copyright &copy; 2015, Mathias Lux.</p>
+            
+            <p>Documentation built with <a href="http://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+
+        
+
+        <script src="https://code.jquery.com/jquery-1.10.2.min.js"></script>
+        <script src="../js/bootstrap-3.0.3.min.js"></script>
+        <script src="../js/prettify-1.0.min.js"></script>
+        <script src="../js/highlight.pack.js"></script>
+        <script src="../js/base.js"></script>
+    </body>
+</html>
