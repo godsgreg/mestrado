@@ -1,8 +1,10 @@
 package mmrfgp;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -25,9 +27,12 @@ import org.jgap.gp.impl.GPConfiguration;
 import org.jgap.gp.impl.GPGenotype;
 import org.jgap.gp.terminal.Terminal;
 import org.jgap.gp.terminal.Variable;
+import org.jgap.util.PersistableObject;
 
 import utilidades.FileHandler;
 import utilidades.Sqrt;
+
+import com.thoughtworks.xstream.XStream;
 
 /**
  * Classe principal do experimento
@@ -219,16 +224,66 @@ public class GPCore extends GPProblem {
 		
 		return GPGenotype.randomInitialGenotype(conf, types, argTypes, nodeSets, 50, true);
 	}
+	
+	public static void saveProgram(IGPProgram prg) throws Exception {
+	     XStream xstream = new XStream();
+	     PrintWriter outFile = new PrintWriter(new  
+	FileOutputStream("best.xml", false));
+	     String xml = xstream.toXML(prg);
+	     outFile.print(xml);
+	     outFile.close();
+	}
 
-	public static void main(String[] args)
-			throws Exception {
-
+	public static IGPProgram loadProgram() throws Exception {
+		XStream xstream = new XStream();
+		File f = new File("best.xml");
+		InputStream oi = new FileInputStream(f);
+		return (IGPProgram) xstream.fromXML(oi);
+	}
+	
+	public static void runSavedProgram(String fileName) throws Exception{
+		folds = utilidades.FoldGenerator.breakSetSelected();	
+		System.out.println("loading files...");
+		dataController = new FileHandler();
+		dataController.loadData(queryPath);
+		dataController.loadRelevants(relevantPath);
+		
 		GPConfiguration config = new GPConfiguration();
+		config.reset();
 
-		int numeroGeracoes = 30;//30
+		int numeroGeracoes = 3;//30;
 		config.setGPFitnessEvaluator(new DefaultGPFitnessEvaluator());
 		config.setMaxInitDepth(10);
-		config.setPopulationSize(100);//(300);
+		config.setPopulationSize(10);//(300);
+		config.setMaxCrossoverDepth(6);
+		config.setMinInitDepth(2);
+		config.setMutationProb(0.05f);
+		config.setCrossoverProb(0.9f);
+		config.setReproductionProb(0.05f);
+		config.setFitnessFunction(new GPCore.FormulaFitnessFunction());
+		config.setStrictProgramCreation(true);
+		GPProblem problem = new GPCore(config);
+
+		GPGenotype gp = problem.create();
+		
+		
+//		org.jgap.util.PersistableObject po = new PersistableObject("teste!");
+//		IGPProgram program = loadProgram();
+		
+		for(currentFold = 0; currentFold < 5; currentFold++){
+			currentState = 0; //teste
+			double result = FormulaFitnessFunction.computeRawFitness(null);		
+			System.out.println("resultado: "+ result );
+		}
+	}
+	
+	public static void runExperiment() throws Exception{
+		GPConfiguration config = new GPConfiguration();
+
+		int numeroGeracoes = 1;//30;
+		config.setGPFitnessEvaluator(new DefaultGPFitnessEvaluator());
+		config.setMaxInitDepth(10);
+		config.setPopulationSize(4);//(300);
 		config.setMaxCrossoverDepth(6);
 		config.setMinInitDepth(2);
 		config.setMutationProb(0.05f);
@@ -239,17 +294,20 @@ public class GPCore extends GPProblem {
 		GPProblem problem = new GPCore(config);
 
 		GPGenotype gp;// = problem.create();
-		//gp.setVerboseOutput(true);
-		//gp.outputSolution(gp.getAllTimeBest());
-		List<Double> solucoes = new ArrayList<Double>();
+
 		folds = utilidades.FoldGenerator.breakSetSelected();
 		
 		System.out.println("loading files...");
 		dataController = new FileHandler();
 		dataController.loadData(queryPath);
 		dataController.loadRelevants(relevantPath);
+		
+		
+	
+//		
 		for(currentFold = 0; currentFold < 5; currentFold++){
-			System.out.println("==================================================\nCriando população inicial para a partição " + String.valueOf(currentFold + 1));
+//			
+			System.out.println("==================================================\nCriando popula��o inicial para a partição " + String.valueOf(currentFold + 1));
 			gp = problem.create();
 			gp.setVerboseOutput(true);
 			currentState = 1; //treino
@@ -260,19 +318,29 @@ public class GPCore extends GPProblem {
 				currentState = 1;
 				gp.evolve();
 				trainingPrec = gp.getFittestProgram().getFitnessValue();
-				currentState = 0;
+				currentState = 0; //teste
 				validationPrec = FormulaFitnessFunction.computeRawFitness(gp.getFittestProgram());
-				System.out.println("Geração " + i +" -- Treino: " + trainingPrec + " - Validação: " + validationPrec);
+				System.out.println("Gera��o " + i +" -- Treino: " + trainingPrec + " - Valida��o: " + validationPrec);
 				//if( i > 5 && validationPrec < trainingPrec)
 					//break;
 				i++;
 			}
 			gp.outputSolution(gp.getFittestProgram());
-			//gp.evolve(numeroGeracoes);
+			
+			saveProgram(gp.getFittestProgram());
 
-			//currentFold++;
 		}
+	}
 
+	public static void main(String[] args)
+	{
+		try{
+			runSavedProgram("teste!");
+			//runExperiment();
+		}catch(Exception ex){
+			ex.printStackTrace();
+		}
+		
 	}
 
 
@@ -284,7 +352,8 @@ public class GPCore extends GPProblem {
 
 		public static double computeRawFitness(final IGPProgram ind) {
 			float[] vetorFitness = new float[100];
-
+			
+			
 			List<String> descritores;
 			Map<String, Map<String, Float> > ranks;
 			Map<String, Float> novoRank;
@@ -328,7 +397,7 @@ public class GPCore extends GPProblem {
 				ranks = new HashMap<String, Map<String, Float> >();
 				menoresMaiores = new HashMap<String, float[]>();
 				for (String key : descritores) {
-					//System.out.println("Gerando rank para " + key);
+					//ranks["CEDD"] -> resultados de uma busca usando a currentQuery como consulta
 					ranks.put(key, dataController.getRank(key ,String.valueOf(currentQuery)+".txt"));
 					float[] f = minMax(ranks.get(key));
 					menoresMaiores.put(key, f);
@@ -348,75 +417,11 @@ public class GPCore extends GPProblem {
 			for(int i = 0; i <numberOfQueries; i++){
 				fitness += vetorFitness[i];
 			}
-			fitness /= numberOfQueries;
-			System.out.println("Valor do fitness: " + fitness);
+			fitness /= (float)numberOfQueries;
+			//System.out.println("Valor do fitness: " + fitness);
 			return fitness;
 		}
 		
-//		static Map<String, Float> recuperaRank(File file){
-//			Map<String, Float> result = new HashMap<String, Float>();
-//			try{
-//				BufferedReader br = new BufferedReader(new FileReader(file));
-//				String line;
-//				while ((line = br.readLine()) != null) {
-//					//System.out.println(line);
-//					String[] dados = line.split(" ");
-//					result.put(dados[1], Float.parseFloat(dados[0]) );
-//				}
-//				br.close();
-//			}catch(Exception e){
-//				e.printStackTrace();
-//			}
-//
-//			return result;
-//		}
-		
-	/*	Map<String, Float> expandeRank(Map<String, Float> rank, int k){
-			String[] rankStr = new String[rank.size()];
-			float[] rankSim = new float[rank.size()];
-			int i = 0;
-			
-			//gera query com base nas k primeiras imagens do rank e a primeira palavra de suas descrições
-			for(String key : rank.keySet()){
-			    rankStr[i] = key;
-			    rankSim[i] = rank.get(key);
-			    i++;
-			}
-			rankStr = ordena(rankStr, rankSim)[0];
-			String query = "";
-			for(i = 0; i < k; i++){
-				query += MV.descricao.get(rankStr[i]) + " ";
-			}
-			
-			Map<String, Float> rankText = MV.similaridade(query);
-			
-			//normaliza rank textural
-			float menor = 10000.0f, maior = 0.0f;
-			for(String key: rankText.keySet()){
-				if(rankText.get(key) > maior){
-					maior = rankText.get(key);
-				}
-				if(rankText.get(key) < menor){
-					menor = rankText.get(key);
-				}
-			}
-			for(String key: rankText.keySet()){
-
-				float newSim;
-				newSim = (rankText.get(key) - menor) / (maior - menor);
-				if(newSim == 0.0f){
-					newSim = 0.001f;
-				}
-				rankText.put(key, newSim);
-				
-			}
-			//Insere novas imagens no rank, e atualiza as antigas		
-			for(String key: rankText.keySet()){
-				rank.put(key, rankText.get(key));
-			}
-			return rank;
-		}
-		*/
 		static Map<String, Float> combinaRank(Map<String, Map<String, Float> > ranks, Map<String, float[]> menoresMaiores, final IGPProgram ind){
 			Map<String, Float> n_rank = new HashMap<String, Float>();
 			Object[] noargs = new Object[0];
@@ -426,13 +431,13 @@ public class GPCore extends GPProblem {
 				//para cada descritor
 				
 				for (String key2 : ranks.get(key).keySet()) {
-					//para cada imagem rankeada pelo descritor
+					//para cada imagem recuperada pelo descritor usando a currentQuery como consulta
 					
 					//ACC_sim, CEDD_sim, CLD_sim, FCTH_sim, GCH_sim, JCD_sim, PHOG_sim
 					if(n_rank.get(key2) == null){
 						//se ja nao estiver contida no novo rank
 						// ADICIONAR FLOAT 'RANK.GET(KEY).GET(KEY2)' AO CROMOSSOMO PARA O ALELO 'KEY'
-						//System.out.println("Atribuindo valor para " + key);
+						try{
 						
 						if(key.equals("ACC")){
 							ACC_sim.set(ranks.get(key).get(key2) == null ? similaridadeMinima : ranks.get(key).get(key2));
@@ -632,13 +637,17 @@ public class GPCore extends GPProblem {
 						}else if(key.equals("BIC_cat20")){
 							BIC_cat20.set(ranks.get(key).get(key2) == null ? similaridadeMinima : ranks.get(key).get(key2));
 						}
-						
+						}catch(NullPointerException ex){
+							System.out.println("key: "+ key + "key2: " + key2);
+						}
 						
 						for (String key3 : ranks.keySet()) {
 							if(!key3.equals(key)){
 								//para cada ocorrencia da mesma imagem nos demais ranks
 								//ADICIONAR FLOAT 'RANK.GET(KEY3).GET(KEY2)' AO CROMOSSOMO PARA O ALELO 'KEY3'
 								//System.out.println("Agora tribuindo valor para " + key3);
+								
+								try{
 								
 								if(key3.equals("ACC")){
 									ACC_sim.set(ranks.get(key3).get(key2) == null ? similaridadeMinima : ranks.get(key3).get(key2));
@@ -839,12 +848,21 @@ public class GPCore extends GPProblem {
 								}else if(key3.equals("BIC_cat20")){
 									BIC_cat20.set(ranks.get(key3).get(key2) == null ? similaridadeMinima : ranks.get(key3).get(key2));
 								}
+								
+								}catch(NullPointerException ex){
+									System.out.println("key3: "+ key3 + "key2: " + key2);
+								}
 							}
 						}
 						//inserir imagem rankeada no novo rank
 						//System.out.println("Executando arvore...");
-
-						float score = ind.execute_float(0, noargs);
+						float score;
+						
+						if(ind != null){
+							score = ind.execute_float(0, noargs);
+						}else{
+							score = dataAnalyser.Analyser.executeProgram();
+						}
 						//System.out.println("Score da arvore: " + score);
 						n_rank.put(key2, score);
 						//System.out.println("Inseriu rank");
@@ -872,16 +890,17 @@ public class GPCore extends GPProblem {
 			    i++;
 			}
 			rankStr = ordena(rankStr, rankSim)[0];
-			//float pat5 = Avaliadores.PAt5(rankStr, relevantes);
-			float pat10 = Avaliadores.PAt10(rankStr, relevantes);
+			float pat5 = Avaliadores.PAt5(rankStr, relevantes);
+			//float pat10 = Avaliadores.PAt10(rankStr, relevantes);
 			//float acc = Avaliadores.mapValue(rankStr,relevantes);
 			
 			//float acc = (pat5 + pat10)/2.0f;
 			//System.out.println(pat10);
-			return pat10;//acc;
+			return pat5;//pat10;//acc;
 		}
 		
 		static Map<String, Map<String, Float> > normalizaRank(Map<String, Map<String, Float>> ranks){
+			// transforma em similaridade
 			Map<String, Float> Nrank;
 			Map<String, Map<String, Float>> Nranks = new HashMap<String, Map<String,Float>>();
 			for(String key: ranks.keySet()){
@@ -923,32 +942,32 @@ public class GPCore extends GPProblem {
 		
 		
 		static String[][] ordena(String[] paths, float[] distancias){
-			int menor; // maior
+			int maior;
+			// decrescente
 			for(int i = 0; i < distancias.length - 1; i++){
-				menor = i;
+				maior = i;
 				for(int j = i+1; j < distancias.length; j++){
-					if(distancias[j] > distancias[menor]){
-						menor = j;
+					if(distancias[j] > distancias[maior]){
+						maior = j;
 					}
 				}
-				if(menor != i){
+				if(maior != i){
 					float temp;
 					String tempS;
 					
 					temp = distancias[i];
-					distancias[i] = distancias[menor];
-					distancias[menor] = temp;
+					distancias[i] = distancias[maior];
+					distancias[maior] = temp;
 					
 					tempS = paths[i];
-					paths[i] = paths[menor];
-					paths[menor] = tempS;
+					paths[i] = paths[maior];
+					paths[maior] = tempS;
 				}
 			}
 			String[][] results = new String[2][distancias.length];
 			results[0] = paths;
 			for(int i = 0; i < distancias.length - 1; i++){
 				results[1][i] = String.valueOf(distancias[i]);
-				
 			}
 			return results;
 		}
@@ -973,6 +992,14 @@ public class GPCore extends GPProblem {
 			int[] queries4 = {42,31,16,27,25,32,6,24,41,28,33,50,21,36,10,13,19,12,38,35};
 			int[] queries5 = {45,2,48,4,18,8,5,7,37,20,42,31,16,27,25,32,6,24,41,28};
 			return folds[currentFold][currentState];
+		}
+		
+		//((((GCH * ((GCH * JCD_cat1) * ((GCH * JCD_cat1) * JCD_cat1))) * (GCH * JCD_cat1)) * JCD_cat1) * JCD_cat1) * (GCH * JCD_cat1)
+		
+		public static float executeProgram(){
+			final float gch = (float) GCH_sim.getValue(); 
+			final float jcd_cat1 = (float) JCD_cat1.getValue();
+			return ((((gch * ((gch * jcd_cat1) * ((gch * jcd_cat1) * jcd_cat1))) * (gch * jcd_cat1)) * jcd_cat1) * jcd_cat1) * (gch * jcd_cat1);
 		}
 	}
 }

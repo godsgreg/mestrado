@@ -147,6 +147,7 @@ public class CategoryRanker {
 	}
 	
 	static String[][] ordena(String[] paths, float[] distancias){
+		// crescente
 		int menor;
 		for(int i = 0; i < distancias.length - 1; i++){
 			menor = i;
@@ -202,7 +203,7 @@ public class CategoryRanker {
 			*/
 			float newSim;
 			//System.out.println("sim antiga: " + rank.get(key));
-			newSim = (rank.get(key) - menor) / (maior - menor);
+			newSim = rank.get(key)/ maior;
 			
 			if(newSim == 0.0f){
 				newSim = 0.001f;
