@@ -79,6 +79,37 @@ public class FileHandler {
 		}
 	}
 	
+	public void loadData(String pathQuery, String pathBase){
+		data = new HashMap<String, Map<String,Map<String,Float>>>();
+		try{			
+			File folder = new File(pathQuery);
+			File[] listOfFiles = folder.listFiles();
+
+			for (File file : listOfFiles) {
+			    if (file.isFile()) {
+			        data.put(file.getName(),readFile(file));
+			    }
+			}
+		
+		}catch(Exception ex){
+			ex.printStackTrace();
+		}
+		
+		try{			
+			File folder = new File(pathBase);
+			File[] listOfFiles = folder.listFiles();
+
+			for (File file : listOfFiles) {
+			    if (file.isFile()) {
+			        data.put(file.getName(),readFile(file));
+			    }
+			}
+		
+		}catch(Exception ex){
+			ex.printStackTrace();
+		}
+	}
+	
 	public HashMap<String, Float> getRank(String descriptor, String image){
 		return (HashMap<String, Float>) data.get(descriptor).get(image);
 	}

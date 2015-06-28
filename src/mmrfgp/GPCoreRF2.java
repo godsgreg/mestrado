@@ -1,8 +1,10 @@
 package mmrfgp;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -38,7 +40,7 @@ import com.thoughtworks.xstream.XStream;
  * Classe principal do experimento
  */
 
-public class GPCore extends GPProblem {
+public class GPCoreRF2 extends GPProblem {
 	
 	int geracao = 0, individuosCont = 0;
 	static int currentFold = 0, currentState = 1;
@@ -61,11 +63,12 @@ public class GPCore extends GPProblem {
 	
 	static int numberOfQueries = 20;
 	static float similaridadeMinima = 0.0f;
+	static String basePath = utilidades.ProjectSetup.ranksBasePath;
 	static String queryPath = utilidades.ProjectSetup.ranksConsultasPath;//"consultasAvaliadas/colecaoAvulso_semParticao";
 	static String relevantPath = utilidades.ProjectSetup.relevantesPath;//"Relevantes/avulso";
 //	static ModeloVetorial MV = new ModeloVetorial();
 
-	public GPCore(GPConfiguration a_conf)
+	public GPCoreRF2(GPConfiguration a_conf)
 			throws InvalidConfigurationException {
 		super(a_conf);
 	}
@@ -225,22 +228,6 @@ public class GPCore extends GPProblem {
 		return GPGenotype.randomInitialGenotype(conf, types, argTypes, nodeSets, 50, true);
 	}
 	
-	public static void saveProgram(IGPProgram prg) throws Exception {
-	     XStream xstream = new XStream();
-	     PrintWriter outFile = new PrintWriter(new  
-	FileOutputStream("best.xml", false));
-	     String xml = xstream.toXML(prg);
-	     outFile.print(xml);
-	     outFile.close();
-	}
-
-	public static IGPProgram loadProgram() throws Exception {
-		XStream xstream = new XStream();
-		File f = new File("best.xml");
-		InputStream oi = new FileInputStream(f);
-		return (IGPProgram) xstream.fromXML(oi);
-	}
-	
 	public static void runSavedProgram(String fileName) throws Exception{
 		folds = utilidades.FoldGenerator.breakSetSelected();	
 		System.out.println("loading files...");
@@ -260,9 +247,9 @@ public class GPCore extends GPProblem {
 		config.setMutationProb(0.05f);
 		config.setCrossoverProb(0.9f);
 		config.setReproductionProb(0.05f);
-		config.setFitnessFunction(new GPCore.FormulaFitnessFunction());
+		config.setFitnessFunction(new GPCoreRF2.FormulaFitnessFunction());
 		config.setStrictProgramCreation(true);
-		GPProblem problem = new GPCore(config);
+		GPProblem problem = new GPCoreRF2(config);
 
 		GPGenotype gp = problem.create();
 		
@@ -273,10 +260,6 @@ public class GPCore extends GPProblem {
 		for(currentFold = 0; currentFold < 5; currentFold++){
 			currentState = 0; //teste
 			double result = FormulaFitnessFunction.computeRawFitness(null);		
-			for(int t : folds[currentFold][currentState]){
-				System.out.print(t + " ");
-			}
-			//System.out.println(folds[currentFold][currentState]);
 			System.out.println("resultado: "+ result );
 		}
 	}
@@ -293,9 +276,9 @@ public class GPCore extends GPProblem {
 		config.setMutationProb(0.05f);
 		config.setCrossoverProb(0.9f);
 		config.setReproductionProb(0.05f);
-		config.setFitnessFunction(new GPCore.FormulaFitnessFunction());
+		config.setFitnessFunction(new GPCoreRF2.FormulaFitnessFunction());
 		config.setStrictProgramCreation(true);
-		GPProblem problem = new GPCore(config);
+		GPProblem problem = new GPCoreRF2(config);
 
 		GPGenotype gp;// = problem.create();
 
@@ -303,7 +286,7 @@ public class GPCore extends GPProblem {
 		
 		System.out.println("loading files...");
 		dataController = new FileHandler();
-		dataController.loadData(queryPath);
+		dataController.loadData(queryPath, basePath);
 		dataController.loadRelevants(relevantPath);
 		
 		
@@ -330,9 +313,6 @@ public class GPCore extends GPProblem {
 				i++;
 			}
 			gp.outputSolution(gp.getFittestProgram());
-			
-			saveProgram(gp.getFittestProgram());
-
 		}
 	}
 
@@ -392,28 +372,48 @@ public class GPCore extends GPProblem {
 			
 			int[] imagensSelecionadas = selectImages();
 			
-			numberOfQueries = folds[currentFold][currentState].length;
+			numberOfQueries = imagensSelecionadas.length;
+			
 			
 			for(int i = 0; i < numberOfQueries; i++){
+				ArrayList<String> imagensConsulta = new ArrayList<String>();
 				int currentQuery = imagensSelecionadas[i];
-				//System.out.println(i);
-				//para cada imagem da lista de queries
-				ranks = new HashMap<String, Map<String, Float> >();
-				menoresMaiores = new HashMap<String, float[]>();
-				for (String key : descritores) {
-					//ranks["CEDD"] -> resultados de uma busca usando a currentQuery como consulta
-					ranks.put(key, dataController.getRank(key ,String.valueOf(currentQuery)+".txt"));
-					float[] f = minMax(ranks.get(key));
-					menoresMaiores.put(key, f);
+				
+				List<Map<String, Float>> relevantRanks = new ArrayList<Map<String,Float>>();
+				
+				for(int j =0 ; j < 5; j++){
+					imagensConsulta.add(String.valueOf(currentQuery));
+					for(String consulta : imagensConsulta){
+						//para cada imagem da lista de queries
+						ranks = new HashMap<String, Map<String, Float> >();
+						menoresMaiores = new HashMap<String, float[]>();
+						for (String key : descritores) {
+							//ranks["CEDD"] -> resultados de uma busca usando a currentQuery como consulta
+							ranks.put(key, dataController.getRank(key ,consulta.replace(".jpg", "") + ".txt"));
+							float[] f = minMax(ranks.get(key));
+							menoresMaiores.put(key, f);
+						}
+						//dado os k ranks, combina eles usando o cromossomo atual
+						ranks = normalizaRank(ranks);
+		
+						novoRank = combinaRank(ranks, menoresMaiores, ind);
+						relevantRanks.add(novoRank);
+					
+					}
+					//combina os ranks TODO
+					Map<String, Float> rankCombinado = RF.combinaRanks(relevantRanks);
+					
+					vetorFitness[i] = avaliaRank(rankCombinado, imagensSelecionadas[i], imagensConsulta);
+					if(vetorFitness[i] < 1){
+						imagensConsulta = (ArrayList) RF.selecionaRelevantesSimulado(rankCombinado, String.valueOf(imagensSelecionadas[i])); //selecionaRelevantesSimulado(novoRank, String.valueOf(imagensSelecionadas[i]));
+						
+					}else{
+						break;
+					}
+					
+					
+					//avalia a precisão do rank usando MAP
 				}
-				//dado os k ranks, combina eles usando o cromossomo atual
-				ranks = normalizaRank(ranks);
-				//System.out.println("Combinando ranks");
-				novoRank = combinaRank(ranks, menoresMaiores, ind);
-				
-				//avalia a precisão do rank usando MAP
-				vetorFitness[i] = avaliaRank(novoRank, currentQuery);
-				
 				//System.out.println(vetorFitness[i]);
 			}
 			
@@ -424,6 +424,10 @@ public class GPCore extends GPProblem {
 			fitness /= (float)numberOfQueries;
 			//System.out.println("Valor do fitness: " + fitness);
 			return fitness;
+		}
+		
+		static Map<String, Float> combinaRank(Map<String, Map<String, Float>> relevantRanks){
+			return new HashMap<String, Float>();
 		}
 		
 		static Map<String, Float> combinaRank(Map<String, Map<String, Float> > ranks, Map<String, float[]> menoresMaiores, final IGPProgram ind){
@@ -878,29 +882,41 @@ public class GPCore extends GPProblem {
 			return n_rank;
 		}
 		
-		static float avaliaRank(Map<String, Float> rank, int fileIndex){
-			//File folder = new File(relevantPath);
+		static float avaliaRank(Map<String, Float> rank, int fileIndex, List<String> consultas){
+
+			Map<String,Float> novoRank = new HashMap<String,Float>();
 			List<String> relevantes = dataController.getRelevant(fileIndex + ".txt");
+			boolean isFromQuery = false;
+			for(String resposta : rank.keySet()){
+				isFromQuery = false;
+				for(String consulta: consultas){
+					if(resposta.equals(consulta)){
+						isFromQuery = true;
+						break;
+					}
+				}
+				if(!isFromQuery)
+					novoRank.put(resposta,rank.get(resposta));
+			}
 
-
-			String[] rankStr = new String[rank.size()];
-			float[] rankSim = new float[rank.size()];
+			String[] rankStr = new String[novoRank.size()];
+			float[] rankSim = new float[novoRank.size()];
 			//System.out.println(rank.size());
 			//float acc = 0.0f;
 			int i = 0;
-			for(String key : rank.keySet()){
+			for(String key : novoRank.keySet()){
 			    rankStr[i] = key;
-			    rankSim[i] = rank.get(key);
+			    rankSim[i] = novoRank.get(key);
 			    i++;
 			}
 			rankStr = ordena(rankStr, rankSim)[0];
-			float pat5 = Avaliadores.PAt5(rankStr, relevantes);
-			//float pat10 = Avaliadores.PAt10(rankStr, relevantes);
+			//float pat5 = Avaliadores.PAt5(rankStr, relevantes);
+			float pat10 = Avaliadores.PAt10(rankStr, relevantes);
 			//float acc = Avaliadores.mapValue(rankStr,relevantes);
 			
 			//float acc = (pat5 + pat10)/2.0f;
 			//System.out.println(pat10);
-			return pat5;//pat10;//acc;
+			return pat10;//acc;
 		}
 		
 		static Map<String, Map<String, Float> > normalizaRank(Map<String, Map<String, Float>> ranks){
