@@ -13,10 +13,7 @@ import javax.imageio.ImageIO;
 import net.semanticmetadata.lire.ImageSearchHits;
 import net.semanticmetadata.lire.ImageSearcher;
 import net.semanticmetadata.lire.ImageSearcherFactory;
-import net.semanticmetadata.lire.AbstractImageSearcher;
 import net.semanticmetadata.lire.imageanalysis.bovw.SiftFeatureHistogramBuilder;
-import net.semanticmetadata.lire.imageanalysis.bovw.SurfFeatureHistogramBuilder;
-import net.semanticmetadata.lire.impl.SiftDocumentBuilder;
 import net.semanticmetadata.lire.impl.SurfDocumentBuilder;
 import net.semanticmetadata.lire.impl.VisualWordsImageSearcher;
 import net.semanticmetadata.lire.utils.FileUtils;
@@ -53,7 +50,7 @@ public class VisualSearcher {
 		};
 		
 		//gera os ranks para cada descritor exceto o SIFT
-		for(int j = 4; j < 5/*indexPath.length - 1*/; j++){
+		for(int j = 8; j < 9/*indexPath.length - 1*/; j++){
 
 			IndexReader ir = DirectoryReader.open(FSDirectory.open(new File(indexPath[j])));
 			ImageSearcher searcher = searchers[j];
@@ -98,21 +95,21 @@ public class VisualSearcher {
 	
 	public static void searchBoVWIndex(BufferedImage image, String identifier, String indexPath) throws IOException {
         //String indexPath = "./bovw-test";
-        VisualWordsImageSearcher searcher = new VisualWordsImageSearcher(100,
-        		net.semanticmetadata.lire.DocumentBuilder.FIELD_NAME_SIFT);
-        IndexReader reader = DirectoryReader.open(FSDirectory.open(new File(indexPath)));
- 
-        // employed for creating the visual words for the query document. 
-        // Make sure you are using the same parameters as for indexing. 
-        SiftFeatureHistogramBuilder sh = new SiftFeatureHistogramBuilder(reader, -1, 100);
-        // extract SURF features and create query
-        SiftDocumentBuilder sb = new SiftDocumentBuilder();
-        Document query = sb.createDocument(image, identifier);
-        // create visual words for the query
-        query = sh.getVisualWords(query);
-        // search
-        ImageSearchHits hits = searcher.search(query, reader);
-        // show or analyze your results ....
+		 VisualWordsImageSearcher searcher = new VisualWordsImageSearcher(100,
+				 net.semanticmetadata.lire.DocumentBuilder.FIELD_NAME_SIFT);
+         IndexReader reader = DirectoryReader.open(FSDirectory.open(new File(indexPath)));
+
+         // employed for creating the visual words for the query document. 
+         // Make sure you are using the same parameters as for indexing. 
+         SiftFeatureHistogramBuilder sh = new SiftFeatureHistogramBuilder(reader, -1, 128);
+         // extract SURF features and create query
+         SurfDocumentBuilder sb = new SurfDocumentBuilder();
+         Document query = sb.createDocument(image, identifier);
+         // create visual words for the query
+         query = sh.getVisualWords(query);
+         // search
+         ImageSearchHits hits = searcher.search(query, reader);
+
         File arq = new File(ranksPath + "/" + indexPath.substring(5) + "/" + identifier.replace(".jpg", ".txt"));
 		FileWriter fw = new FileWriter(arq); 
 
@@ -133,12 +130,12 @@ public class VisualSearcher {
 		    //System.exit(1);
 		}
 		
-		try{
-			System.out.println("Gerando ranks para os descritores visuais...");
-			SearchImages();
-		}catch(Exception ex){
-			ex.printStackTrace();
-		}
+//		try{
+//			System.out.println("Gerando ranks para os descritores visuais...");
+//			SearchImages();
+//		}catch(Exception ex){
+//			ex.printStackTrace();
+//		}
 		
 		try{
 			ArrayList<String> images = FileUtils.getAllImages(new File(consultasPath), true); // consultaPath
@@ -152,9 +149,12 @@ public class VisualSearcher {
 				for (Iterator<String> it = images.iterator(); it.hasNext(); ) {
 					try{
 						String imageFilePath = it.next();
-						//System.out.println(imageFilePath);
-						BufferedImage img = ImageIO.read(new FileInputStream(imageFilePath));
-						searchBoVWIndex(img, NameFinder.findName(imageFilePath), indexPath[7]);
+						File file = new File(ranksPath + "/" + indexPath[7].substring(5) + "/" + NameFinder.findName(imageFilePath).replace(".jpg", ".txt"));
+						if(!file.exists()){
+							//System.out.println(imageFilePath);
+							BufferedImage img = ImageIO.read(new FileInputStream(imageFilePath));
+							searchBoVWIndex(img, NameFinder.findName(imageFilePath), indexPath[7]);
+						}
 					}catch(Exception e){
 						e.printStackTrace();
 					}
@@ -162,9 +162,9 @@ public class VisualSearcher {
 			}
 		}catch(Exception e){e.printStackTrace();}
 		
-		try{
-			System.out.println("Descritor indexBIC...");
-			BicSearcher.buscadorBic();
-		}catch(Exception ex){ex.printStackTrace();}
+//		try{
+//			System.out.println("Descritor indexBIC...");
+//			BicSearcher.buscadorBic();
+//		}catch(Exception ex){ex.printStackTrace();}
 	}
 }

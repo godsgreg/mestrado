@@ -19,7 +19,7 @@ public class CategoryRanker {
 	static String[] descritores = {"ACC","BIC","CEDD","CLD","FCTH","GCH","JCD","PHOG","SIFT"};
 	
 	
-	public static void main(String args[]){
+	public void buscar(){
 		//cria as listas invertidas
 		MV = new ModeloVetorial();
 		ArrayList<String> images;

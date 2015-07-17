@@ -11,8 +11,8 @@ import java.util.Map;
 public class RF {
 	public static Map<String, Float> combinaRanks(List<Map<String, Float>> listaRanks){
 		Map<String, Float> rankCombinado;
-		rankCombinado = maiorValor(listaRanks);
-		//rankCombinado = mediaAritmetica(listaRanks);
+		//rankCombinado = maiorValor(listaRanks);
+		rankCombinado = mediaAritmetica(listaRanks);
 		//rankCombinado = mediaPonderada(listaRanks);
 		return rankCombinado;
 	}
@@ -115,7 +115,7 @@ public class RF {
 					break;
 				}
 			}
-			if(imgsRelevantes.size() >= 5){
+			if(imgsRelevantes.size() >= 2){
 				break;
 			}
 		}

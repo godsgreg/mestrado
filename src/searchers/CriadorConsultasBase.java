@@ -13,8 +13,6 @@ import javax.imageio.ImageIO;
 import net.semanticmetadata.lire.ImageSearchHits;
 import net.semanticmetadata.lire.ImageSearcher;
 import net.semanticmetadata.lire.ImageSearcherFactory;
-import net.semanticmetadata.lire.AbstractImageSearcher;
-import net.semanticmetadata.lire.impl.VisualWordsImageSearcher;
 import net.semanticmetadata.lire.utils.FileUtils;
 
 import org.apache.lucene.index.DirectoryReader;

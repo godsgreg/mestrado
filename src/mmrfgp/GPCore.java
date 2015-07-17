@@ -32,7 +32,6 @@ import org.jgap.util.PersistableObject;
 import utilidades.FileHandler;
 import utilidades.Sqrt;
 
-import com.thoughtworks.xstream.XStream;
 
 /**
  * Classe principal do experimento
@@ -225,21 +224,6 @@ public class GPCore extends GPProblem {
 		return GPGenotype.randomInitialGenotype(conf, types, argTypes, nodeSets, 50, true);
 	}
 	
-	public static void saveProgram(IGPProgram prg) throws Exception {
-	     XStream xstream = new XStream();
-	     PrintWriter outFile = new PrintWriter(new  
-	FileOutputStream("best.xml", false));
-	     String xml = xstream.toXML(prg);
-	     outFile.print(xml);
-	     outFile.close();
-	}
-
-	public static IGPProgram loadProgram() throws Exception {
-		XStream xstream = new XStream();
-		File f = new File("best.xml");
-		InputStream oi = new FileInputStream(f);
-		return (IGPProgram) xstream.fromXML(oi);
-	}
 	
 	public static void runSavedProgram(String fileName) throws Exception{
 		folds = utilidades.FoldGenerator.breakSetSelected();	
@@ -311,7 +295,7 @@ public class GPCore extends GPProblem {
 //		
 		for(currentFold = 0; currentFold < 5; currentFold++){
 //			
-			System.out.println("==================================================\nCriando população inicial para a partiÃ§Ã£o " + String.valueOf(currentFold + 1));
+			System.out.println("==================================================\nCriando populaï¿½ï¿½o inicial para a partiÃ§Ã£o " + String.valueOf(currentFold + 1));
 			gp = problem.create();
 			gp.setVerboseOutput(true);
 			currentState = 1; //treino
@@ -324,14 +308,12 @@ public class GPCore extends GPProblem {
 				trainingPrec = gp.getFittestProgram().getFitnessValue();
 				currentState = 0; //teste
 				validationPrec = FormulaFitnessFunction.computeRawFitness(gp.getFittestProgram());
-				System.out.println("Geração " + i +" -- Treino: " + trainingPrec + " - Validação: " + validationPrec);
+				System.out.println("Geraï¿½ï¿½o " + i +" -- Treino: " + trainingPrec + " - Validaï¿½ï¿½o: " + validationPrec);
 				//if( i > 5 && validationPrec < trainingPrec)
 					//break;
 				i++;
 			}
 			gp.outputSolution(gp.getFittestProgram());
-			
-			saveProgram(gp.getFittestProgram());
 
 		}
 	}

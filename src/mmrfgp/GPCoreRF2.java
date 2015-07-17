@@ -1,12 +1,11 @@
 package mmrfgp;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.io.InputStream;
-import java.io.PrintWriter;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,12 +28,9 @@ import org.jgap.gp.impl.GPConfiguration;
 import org.jgap.gp.impl.GPGenotype;
 import org.jgap.gp.terminal.Terminal;
 import org.jgap.gp.terminal.Variable;
-import org.jgap.util.PersistableObject;
 
 import utilidades.FileHandler;
 import utilidades.Sqrt;
-
-import com.thoughtworks.xstream.XStream;
 
 /**
  * Classe principal do experimento
@@ -46,6 +42,7 @@ public class GPCoreRF2 extends GPProblem {
 	static int currentFold = 0, currentState = 1;
 	static int folds[][][];
 	static FileHandler dataController;
+	static String baseQueryPath = "/home/gregory/Desktop/ArquivosServidor/JGAP/consultas"; 
 
 	protected static Variable ACC_sim, CEDD_sim, CLD_sim, FCTH_sim, GCH_sim, JCD_sim, PHOG_sim, SIFT_sim, BIC_sim;
 	protected static Variable ACC_txt1, CEDD_txt1, CLD_txt1, FCTH_txt1, GCH_txt1, JCD_txt1, PHOG_txt1, SIFT_txt1, BIC_txt1;
@@ -252,7 +249,7 @@ public class GPCoreRF2 extends GPProblem {
 		GPProblem problem = new GPCoreRF2(config);
 
 		GPGenotype gp = problem.create();
-		
+		System.setOut(new PrintStream(new BufferedOutputStream(new FileOutputStream("console.out")), true));
 		
 //		org.jgap.util.PersistableObject po = new PersistableObject("teste!");
 //		IGPProgram program = loadProgram();
@@ -260,7 +257,7 @@ public class GPCoreRF2 extends GPProblem {
 		for(currentFold = 0; currentFold < 5; currentFold++){
 			currentState = 0; //teste
 			double result = FormulaFitnessFunction.computeRawFitness(null);		
-			System.out.println("resultado: "+ result );
+			System.out.println("resultado particao " + currentFold + " : "+ result );
 		}
 	}
 	
@@ -286,7 +283,7 @@ public class GPCoreRF2 extends GPProblem {
 		
 		System.out.println("loading files...");
 		dataController = new FileHandler();
-		dataController.loadData(queryPath, basePath);
+		dataController.loadData(queryPath);
 		dataController.loadRelevants(relevantPath);
 		
 		
@@ -294,7 +291,7 @@ public class GPCoreRF2 extends GPProblem {
 //		
 		for(currentFold = 0; currentFold < 5; currentFold++){
 //			
-			System.out.println("==================================================\nCriando população inicial para a partiÃ§Ã£o " + String.valueOf(currentFold + 1));
+			System.out.println("==================================================\nCriando populaï¿½ï¿½o inicial para a partiÃ§Ã£o " + String.valueOf(currentFold + 1));
 			gp = problem.create();
 			gp.setVerboseOutput(true);
 			currentState = 1; //treino
@@ -307,7 +304,7 @@ public class GPCoreRF2 extends GPProblem {
 				trainingPrec = gp.getFittestProgram().getFitnessValue();
 				currentState = 0; //teste
 				validationPrec = FormulaFitnessFunction.computeRawFitness(gp.getFittestProgram());
-				System.out.println("Geração " + i +" -- Treino: " + trainingPrec + " - Validação: " + validationPrec);
+				System.out.println("Geraï¿½ï¿½o " + i +" -- Treino: " + trainingPrec + " - Validaï¿½ï¿½o: " + validationPrec);
 				//if( i > 5 && validationPrec < trainingPrec)
 					//break;
 				i++;
@@ -379,17 +376,26 @@ public class GPCoreRF2 extends GPProblem {
 				ArrayList<String> imagensConsulta = new ArrayList<String>();
 				int currentQuery = imagensSelecionadas[i];
 				
-				List<Map<String, Float>> relevantRanks = new ArrayList<Map<String,Float>>();
+				System.out.println("imagem query: " + currentQuery);
 				
 				for(int j =0 ; j < 5; j++){
+					List<Map<String, Float>> relevantRanks = new ArrayList<Map<String,Float>>();
+					System.out.println("\n iteracao " + j + " : ");
 					imagensConsulta.add(String.valueOf(currentQuery));
 					for(String consulta : imagensConsulta){
+						System.out.print(consulta + " ");
 						//para cada imagem da lista de queries
 						ranks = new HashMap<String, Map<String, Float> >();
 						menoresMaiores = new HashMap<String, float[]>();
 						for (String key : descritores) {
-							//ranks["CEDD"] -> resultados de uma busca usando a currentQuery como consulta
-							ranks.put(key, dataController.getRank(key ,consulta.replace(".jpg", "") + ".txt"));
+							
+							if(consulta.replace(".jpg", "").equals(currentQuery + "")){
+							
+								//ranks["CEDD"] -> resultados de uma busca usando a currentQuery como consulta
+								ranks.put(key, dataController.getRank(key ,consulta.replace(".jpg", "") + ".txt"));
+							}else{
+								ranks.put(key,recuperaRank(new File(baseQueryPath + "/" + key + "/" + consulta.replace(".jpg","") + ".txt")));			
+							}
 							float[] f = minMax(ranks.get(key));
 							menoresMaiores.put(key, f);
 						}
@@ -402,14 +408,15 @@ public class GPCoreRF2 extends GPProblem {
 					}
 					//combina os ranks TODO
 					Map<String, Float> rankCombinado = RF.combinaRanks(relevantRanks);
-					
-					vetorFitness[i] = avaliaRank(rankCombinado, imagensSelecionadas[i], imagensConsulta);
-					if(vetorFitness[i] < 1){
-						imagensConsulta = (ArrayList) RF.selecionaRelevantesSimulado(rankCombinado, String.valueOf(imagensSelecionadas[i])); //selecionaRelevantesSimulado(novoRank, String.valueOf(imagensSelecionadas[i]));
+					vetorFitness[i] = avaliaRank(rankCombinado, currentQuery, imagensConsulta);
+					System.out.println("!!!!!!!!!!!!!!!!!!!!!" + vetorFitness[i]);
+					if(vetorFitness[i] ==1){
+						//imagensConsulta = (ArrayList) RF.selecionaRelevantesSimulado(rankCombinado, String.valueOf(imagensSelecionadas[i])); //selecionaRelevantesSimulado(novoRank, String.valueOf(imagensSelecionadas[i]));
 						
-					}else{
 						break;
 					}
+//					else{
+//					}
 					
 					
 					//avalia a precisÃ£o do rank usando MAP
@@ -422,13 +429,13 @@ public class GPCoreRF2 extends GPProblem {
 				fitness += vetorFitness[i];
 			}
 			fitness /= (float)numberOfQueries;
-			//System.out.println("Valor do fitness: " + fitness);
+			System.out.println("Valor do fitness: " + fitness);
 			return fitness;
 		}
 		
-		static Map<String, Float> combinaRank(Map<String, Map<String, Float>> relevantRanks){
-			return new HashMap<String, Float>();
-		}
+//		static Map<String, Float> combinaRank(Map<String, Map<String, Float>> relevantRanks){
+//			return new HashMap<String, Float>();
+//		}
 		
 		static Map<String, Float> combinaRank(Map<String, Map<String, Float> > ranks, Map<String, float[]> menoresMaiores, final IGPProgram ind){
 			Map<String, Float> n_rank = new HashMap<String, Float>();
@@ -884,9 +891,10 @@ public class GPCoreRF2 extends GPProblem {
 		
 		static float avaliaRank(Map<String, Float> rank, int fileIndex, List<String> consultas){
 
+			List<String> novasRelevantes = new ArrayList<>();
 			Map<String,Float> novoRank = new HashMap<String,Float>();
 			List<String> relevantes = dataController.getRelevant(fileIndex + ".txt");
-			boolean isFromQuery = false;
+			boolean isFromQuery = false, isRelevant = false;
 			for(String resposta : rank.keySet()){
 				isFromQuery = false;
 				for(String consulta: consultas){
@@ -895,8 +903,22 @@ public class GPCoreRF2 extends GPProblem {
 						break;
 					}
 				}
-				if(!isFromQuery)
+				if(!isFromQuery){
 					novoRank.put(resposta,rank.get(resposta));
+				}
+			}
+			
+			for(String resposta : novoRank.keySet()){
+				isRelevant = false;
+				for(String relevante: relevantes){
+					if(resposta.equals(relevante)){
+						isRelevant = true;
+						break;
+					}
+				}
+				if(isRelevant){
+					novasRelevantes.add(resposta);
+				}
 			}
 
 			String[] rankStr = new String[novoRank.size()];
@@ -916,6 +938,10 @@ public class GPCoreRF2 extends GPProblem {
 			
 			//float acc = (pat5 + pat10)/2.0f;
 			//System.out.println(pat10);
+			//consultas.clear();
+			for(i = 0; i < 1; i++){
+				consultas.add(novasRelevantes.get(i));
+			}
 			return pat10;//acc;
 		}
 		
@@ -1003,6 +1029,24 @@ public class GPCoreRF2 extends GPProblem {
 				}
 			}
 			return mM;
+		}
+		
+		static Map<String, Float> recuperaRank(File file){
+			Map<String, Float> result = new HashMap<String, Float>();
+			try{
+				BufferedReader br = new BufferedReader(new FileReader(file));
+				String line;
+				while ((line = br.readLine()) != null) {
+					//System.out.println(line);
+					String[] dados = line.split(" ");
+					result.put(dados[1], Float.parseFloat(dados[0]) );
+				}
+				br.close();
+			}catch(Exception e){
+				e.printStackTrace();
+			}
+
+			return result;
 		}
 		
 		static int[] selectImages(){
